@@ -69,30 +69,6 @@
             transition: all 0.7s ease-out; /* Longer transition for fade and drift */
         }
 
-        /* Ensure the unlock instructions are visible but discreet */
-        #unlock-instructions {
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.8rem;
-            text-align: center;
-            z-index: 10000;
-            user-select: none;
-            pointer-events: none;
-        }
-
-        /* Hide the default cursor when the screen is locked */
-        body.locked {
-            cursor: none;
-        }
-
-        /* Show default cursor when unlocked */
-        body.unlocked {
-            cursor: default;
-        }
-
         /* Heartbeat animation for parent mode instruction */
         @keyframes pulse {
             0% { transform: scale(1); opacity: 1; }
@@ -106,31 +82,32 @@
 
         /* Styles for the parent control panel */
         #parent-control-panel {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent dark background */
-            padding: 1rem;
+            position: absolute; /* Position relative to parent, not viewport */
+            top: 50%; /* Center vertically */
+            left: 50%; /* Center horizontally */
+            transform: translate(-50%, -50%); /* Adjust for element's own size */
+            background-color: rgba(51, 51, 51, 0.9); /* Dark gray, slightly transparent */
+            padding: 2rem; /* More padding for centered look */
             display: flex;
-            flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
-            justify-content: center;
-            gap: 0.75rem; /* Space between buttons */
-            z-index: 9999; /* Above lock overlay */
-            border-top-left-radius: 1rem;
-            border-top-right-radius: 1rem;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
-            transform: translateY(100%); /* Start off-screen */
-            transition: transform 0.3s ease-out;
+            flex-direction: column; /* Stack buttons vertically */
+            align-items: center; /* Center buttons horizontally within panel */
+            gap: 1rem; /* More space between stacked buttons */
+            z-index: 10000; /* Ensure it's on top */
+            border-radius: 1rem; /* Rounded corners for the whole panel */
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5); /* Stronger shadow */
+            opacity: 0; /* Start hidden */
+            pointer-events: none; /* Do not block events when hidden */
+            transition: opacity 0.3s ease-out; /* Fade in/out */
         }
 
         #parent-control-panel.show {
-            transform: translateY(0); /* Slide up on show */
+            opacity: 1; /* Fade in */
+            pointer-events: auto; /* Allow interaction when shown */
         }
 
         #parent-control-panel button {
             @apply flex-grow md:flex-grow-0 px-4 py-2 rounded-lg font-bold text-white shadow-md transition-all duration-200;
-            min-width: 120px; /* Ensure buttons have a minimum width */
+            min-width: 180px; /* Ensure buttons have a minimum width for readability */
             background-image: linear-gradient(to right, #6A0572, #D14081); /* Gradient background */
             border: none;
             cursor: pointer;
@@ -169,16 +146,13 @@
         <button id="freeplay-btn">Back to Freeplay</button>
     </div>
 
-    <!-- Instructions for unlocking the screen -->
-    <div id="unlock-instructions" class="rounded-md p-1 bg-gray-800 bg-opacity-50">
-        Press <span class="font-bold">Ctrl + Shift + L</span> to unlock
-    </div>
+    <!-- The unlock instructions div is removed as per request -->
 
     <script>
         // Get references to the main elements
         const lockOverlay = document.getElementById('lock-overlay');
         const visualFeedbackArea = document.getElementById('visual-feedback-area');
-        const unlockInstructions = document.getElementById('unlock-instructions');
+        // Removed unlockInstructions reference as the div is removed
         const mainTitle = document.getElementById('main-title');
         const mainMessage = document.getElementById('main-message');
         const parentModeInstruction = document.getElementById('parent-mode-instruction');
@@ -243,7 +217,7 @@
 
         // Emojis for 'object-animal-vocabulary' lesson
         const lessonEmojis = [
-            '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '🎵', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
+            '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '�', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
             '🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '🐢', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
         ];
 
@@ -586,7 +560,7 @@
         function lockScreen() {
             isLocked = true;
             lockOverlay.style.display = 'flex';
-            unlockInstructions.style.display = 'block';
+            // Removed unlockInstructions.style.display = 'block';
             body.classList.remove('unlocked');
             body.classList.add('locked');
 
@@ -621,7 +595,7 @@
         function unlockScreen() {
             isLocked = false;
             lockOverlay.style.display = 'none';
-            unlockInstructions.style.display = 'none';
+            // Removed unlockInstructions.style.display = 'none';
             body.classList.remove('locked');
             body.classList.add('unlocked');
 
@@ -643,3 +617,4 @@
     </script>
 </body>
 </html>
+�
