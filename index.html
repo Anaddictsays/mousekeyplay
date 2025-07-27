@@ -108,7 +108,7 @@
         #parent-control-panel button {
             @apply flex-grow md:flex-grow-0 px-4 py-2 rounded-lg font-bold text-white shadow-md transition-all duration-200;
             min-width: 180px; /* Ensure buttons have a minimum width for readability */
-            background-image: linear-gradient(to right, #6A0572, #D14081); /* Gradient background */
+            background-color: #4A4A4A; /* Darker gray to match theme */
             border: none;
             cursor: pointer;
         }
@@ -116,6 +116,7 @@
         #parent-control-panel button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            background-color: #666666; /* Slightly lighter gray on hover */
         }
     </style>
 </head>
@@ -217,7 +218,7 @@
 
         // Emojis for 'object-animal-vocabulary' lesson
         const lessonEmojis = [
-            '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '�', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
+            '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '🎵', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
             '🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '🐢', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
         ];
 
@@ -227,7 +228,7 @@
             'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
             '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '🎵', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
-            '🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '🐢', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
+            '🚗', '🚂', '🚁', '�', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '🐢', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
         ];
 
         // Array of musical notes for sound feedback
