@@ -199,6 +199,7 @@
         let hasInteracted = false; // Tracks if toddler has started interacting
         let isParentModeActive = false; // New flag for parent mode
         let currentLessonMode = 'freeplay'; // Default lesson mode
+        let audioContextStarted = false; // Flag to track if Tone.js audio context has started
 
         // Parent Mode Activation Sequence
         const parentModeSequence = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
@@ -243,7 +244,7 @@
         // Emojis for 'object-animal-vocabulary' lesson
         const lessonEmojis = [
             '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '🎵', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
-            '🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '�', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
+            '🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '🐢', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
         ];
 
         // This array was causing the ReferenceError if not properly handled
@@ -362,7 +363,14 @@
         }
 
         // Function to generate and display visual feedback
-        function generateVisualFeedback(x, y, type, content = '') {
+        async function generateVisualFeedback(x, y, type, content = '') {
+            // Ensure audio context is started on first interaction
+            if (!audioContextStarted) {
+                await Tone.start();
+                audioContextStarted = true;
+                console.log("AudioContext started:", Tone.context.state);
+            }
+
             if (!isLocked || isParentModeActive) return; // Only generate feedback when locked AND not in parent mode
 
             // Hide initial messages on first interaction
@@ -433,7 +441,6 @@
                 visualElement.classList.add('show');
             }, 10);
 
-            Tone.start();
             synth.triggerAttackRelease(getRandomElement(notes), '8n');
 
             setTimeout(() => {
@@ -455,7 +462,14 @@
         }
 
         // Event listener for keydown events (for physical keyboards/hybrid devices)
-        function handleKeyDown(event) {
+        async function handleKeyDown(event) {
+            // Ensure audio context is started on first interaction
+            if (!audioContextStarted) {
+                await Tone.start();
+                audioContextStarted = true;
+                console.log("AudioContext started:", Tone.context.state);
+            }
+
             if (isLocked) {
                 event.preventDefault();
 
@@ -472,7 +486,14 @@
         }
 
         // Event listener for touchstart (for initial tap)
-        function handleTouchStart(event) {
+        async function handleTouchStart(event) {
+            // Ensure audio context is started on first interaction
+            if (!audioContextStarted) {
+                await Tone.start();
+                audioContextStarted = true;
+                console.log("AudioContext started:", Tone.context.state);
+            }
+
             if (isLocked) {
                 event.preventDefault();
                 isTouching = true;
@@ -622,4 +643,3 @@
     </script>
 </body>
 </html>
-�
