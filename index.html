@@ -14,6 +14,7 @@
             font-family: 'Inter', sans-serif;
             overflow: hidden; /* Prevent scrolling */
             cursor: none; /* Hide default cursor when locked */
+            touch-action: none; /* Prevent browser default touch actions like pull-to-refresh */
         }
 
         /* The main overlay that locks the screen */
@@ -23,7 +24,9 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: radial-gradient(circle at center, #1a1a1a, #000000); /* Initial subtle gradient */
+            /* Initial subtle gradient, will be animated */
+            background: radial-gradient(circle at center, #1a1a1a, #000000);
+            background-size: 200% 200%; /* Larger background for animation */
             display: flex;
             align-items: center;
             justify-content: center;
@@ -31,6 +34,13 @@
             z-index: 9999; /* Ensure it's on top of everything */
             transition: background 0.5s ease-in-out; /* Smooth background transitions for gradients */
             cursor: none; /* Hide cursor when locked */
+            animation: background-flow 30s linear infinite alternate; /* Continuous, subtle background animation */
+        }
+
+        /* Keyframes for the continuous background flow */
+        @keyframes background-flow {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
         }
 
         /* Styles for the dynamically generated visual elements */
@@ -38,7 +48,7 @@
             position: absolute;
             opacity: 0;
             transform: scale(0.1) rotate(0deg); /* Initial state with rotation */
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* Bouncy transition */
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* Bouncy transition for appearance */
             pointer-events: none; /* Ensure these elements don't block events */
             user-select: none; /* Prevent text selection */
             font-weight: bold;
@@ -52,10 +62,11 @@
             transform: scale(1) rotate(var(--random-rotation, 0deg)); /* Use custom property for random rotation */
         }
 
-        /* Class to fade out and remove the visual element */
+        /* Class to fade out and remove the visual element, with added drift */
         .visual-element.hide {
             opacity: 0;
-            transform: scale(1.5) rotate(var(--random-rotation, 0deg)); /* Slightly grow as it fades */
+            transform: scale(1.5) rotate(var(--random-rotation, 0deg)) translate(var(--drift-x, 0px), var(--drift-y, 0px)); /* Slightly grow and drift as it fades */
+            transition: all 0.7s ease-out; /* Longer transition for fade and drift */
         }
 
         /* Ensure the unlock instructions are visible but discreet */
@@ -81,19 +92,81 @@
         body.unlocked {
             cursor: default;
         }
+
+        /* Heartbeat animation for parent mode instruction */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-heartbeat {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Styles for the parent control panel */
+        #parent-control-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent dark background */
+            padding: 1rem;
+            display: flex;
+            flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+            justify-content: center;
+            gap: 0.75rem; /* Space between buttons */
+            z-index: 9999; /* Above lock overlay */
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+            transform: translateY(100%); /* Start off-screen */
+            transition: transform 0.3s ease-out;
+        }
+
+        #parent-control-panel.show {
+            transform: translateY(0); /* Slide up on show */
+        }
+
+        #parent-control-panel button {
+            @apply flex-grow md:flex-grow-0 px-4 py-2 rounded-lg font-bold text-white shadow-md transition-all duration-200;
+            min-width: 120px; /* Ensure buttons have a minimum width */
+            background-image: linear-gradient(to right, #6A0572, #D14081); /* Gradient background */
+            border: none;
+            cursor: pointer;
+        }
+
+        #parent-control-panel button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
     </style>
 </head>
 <body class="locked">
     <!-- The main overlay that covers the entire screen when locked -->
     <div id="lock-overlay" class="rounded-lg">
-        <h1 class="text-white text-5xl md:text-7xl font-extrabold mb-8 text-center animate-pulse">
+        <!-- Initial messages (shown first) -->
+        <h1 id="main-title" class="text-white text-5xl md:text-7xl font-extrabold mb-8 text-center animate-pulse">
             Ready to Play!
         </h1>
-        <p class="text-white text-xl md:text-2xl text-center">
-            Start typing or moving the mouse!
+        <p id="main-message" class="text-white text-xl md:text-2xl text-center">
+            Tap or swipe the screen!
+        </p>
+        <!-- Parent Mode Activation Instruction (initially hidden) -->
+        <p id="parent-mode-instruction" class="text-white text-xl md:text-2xl text-center animate-heartbeat hidden">
+            Tap all four corners clockwise to activate Parent Mode
         </p>
         <!-- This area will be dynamically populated with visual feedback -->
         <div id="visual-feedback-area"></div>
+    </div>
+
+    <!-- Parent Control Panel -->
+    <div id="parent-control-panel" class="hidden">
+        <button id="color-recognition-btn">Color Recognition</button>
+        <button id="shape-recognition-btn">Shape Recognition</button>
+        <button id="letter-number-btn">Letter/Number Introduction</button>
+        <button id="object-animal-btn">Object/Animal Vocabulary</button>
+        <button id="freeplay-btn">Back to Freeplay</button>
     </div>
 
     <!-- Instructions for unlocking the screen -->
@@ -106,24 +179,44 @@
         const lockOverlay = document.getElementById('lock-overlay');
         const visualFeedbackArea = document.getElementById('visual-feedback-area');
         const unlockInstructions = document.getElementById('unlock-instructions');
+        const mainTitle = document.getElementById('main-title');
+        const mainMessage = document.getElementById('main-message');
+        const parentModeInstruction = document.getElementById('parent-mode-instruction');
+        const parentControlPanel = document.getElementById('parent-control-panel');
+
+        // Get references to parent mode buttons
+        const colorBtn = document.getElementById('color-recognition-btn');
+        const shapeBtn = document.getElementById('shape-recognition-btn');
+        const letterNumberBtn = document.getElementById('letter-number-btn');
+        const objectAnimalBtn = document.getElementById('object-animal-btn');
+        const freeplayBtn = document.getElementById('freeplay-btn');
+
         const body = document.body;
 
-        // State variable to track if the screen is locked
+        // State variables
         let isLocked = true;
+        let isTouching = false;
+        let hasInteracted = false; // Tracks if toddler has started interacting
+        let isParentModeActive = false; // New flag for parent mode
+        let currentLessonMode = 'freeplay'; // Default lesson mode
+
+        // Parent Mode Activation Sequence
+        const parentModeSequence = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
+        let currentSequenceIndex = 0;
+        let lastTapTime = 0;
+        const tapTimeout = 2000; // 2 seconds to complete next tap in sequence
+
+        // Timer for parent mode instruction visibility
+        let parentInstructionTimer;
+        const initialMessageDuration = 7000; // 7 seconds for initial "Ready to Play" messages
+        const instructionShowDuration = 7000; // 7 seconds for parent mode instruction
+        const instructionHideDuration = 30000; // 30 seconds for parent mode instruction
 
         // Initialize Tone.js Synth for sound feedback
-        // Use a simple poly synth for multiple simultaneous notes
         const synth = new Tone.PolySynth(Tone.Synth, {
-            oscillator: {
-                type: "sine" // Simple sine wave for a soft sound
-            },
-            envelope: {
-                attack: 0.01,
-                decay: 0.1,
-                sustain: 0.05,
-                release: 0.3
-            },
-            volume: -20 // Lower the volume by 20 decibels
+            oscillator: { type: "sine" },
+            envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.3 },
+            volume: -20
         }).toDestination();
 
         // Array of vibrant colors for visual feedback and background gradients
@@ -134,7 +227,26 @@
             '#6A0572', '#AB83A1', '#8E292E', '#D14081', '#F08A5D'
         ];
 
-        // Array of characters/emojis for visual feedback, expanded for toddlers
+        // Specific colors for 'color-recognition' lesson
+        const lessonColors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF']; // Red, Green, Blue, Yellow, Magenta, Cyan
+
+        // Specific shapes for 'shape-recognition' lesson
+        const lessonShapes = ['●', '■', '▲', '★', '◆', '❤', '⭐']; // Circle, Square, Triangle, Star, Diamond, Heart, Star
+
+        // Characters for 'letter-number-introduction' lesson (A-Z, 0-9)
+        const lessonLettersNumbers = [
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+            'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+        ];
+
+        // Emojis for 'object-animal-vocabulary' lesson
+        const lessonEmojis = [
+            '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '🎵', '🐾', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓',
+            '🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🐸', '�', '🐥', '🐠', '🦋', '🌸', '🌳', '☀️', '🌙', '☁️'
+        ];
+
+        // This array was causing the ReferenceError if not properly handled
         const characters = [
             'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
             'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
@@ -151,125 +263,357 @@
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
+        // Function to hide the initial messages (Ready to Play / Tap or swipe)
+        function hideInitialMessages() {
+            if (mainTitle) mainTitle.classList.add('hidden');
+            if (mainMessage) mainMessage.classList.add('hidden');
+        }
+
+        // Function to show the initial messages
+        function showInitialMessages() {
+            if (mainTitle) mainTitle.classList.remove('hidden');
+            if (mainMessage) mainMessage.classList.remove('hidden');
+        }
+
+        // Function to manage parent mode instruction visibility
+        function startParentInstructionTimer() {
+            // Clear any existing timer
+            if (parentInstructionTimer) clearInterval(parentInstructionTimer);
+
+            function showAndHideParentInstruction() {
+                parentModeInstruction.classList.remove('hidden');
+                parentModeInstruction.classList.add('animate-heartbeat'); // Ensure animation is active
+                setTimeout(() => {
+                    parentModeInstruction.classList.add('hidden');
+                    parentModeInstruction.classList.remove('animate-heartbeat'); // Remove animation when hidden
+                }, instructionShowDuration);
+            }
+
+            // Show immediately, then set interval for repeated show/hide
+            showAndHideParentInstruction();
+            parentInstructionTimer = setInterval(showAndHideParentInstruction, instructionHideDuration + instructionShowDuration);
+        }
+
+        function stopParentInstructionTimer() {
+            if (parentInstructionTimer) {
+                clearInterval(parentInstructionTimer);
+                parentInstructionTimer = null;
+            }
+            parentModeInstruction.classList.add('hidden');
+            parentModeInstruction.classList.remove('animate-heartbeat');
+        }
+
+        // Function to get the corner based on coordinates
+        function getCorner(x, y) {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const cornerThreshold = 0.2; // 20% of screen width/height for corner detection
+
+            if (x < width * cornerThreshold && y < height * cornerThreshold) {
+                return 'top-left';
+            } else if (x > width * (1 - cornerThreshold) && y < height * cornerThreshold) {
+                return 'top-right';
+            } else if (x > width * (1 - cornerThreshold) && y > height * (1 - cornerThreshold)) {
+                return 'bottom-right';
+            } else if (x < width * cornerThreshold && y > height * (1 - cornerThreshold)) {
+                return 'bottom-left';
+            }
+            return null; // Not in a defined corner
+        }
+
+        // Function to activate parent mode
+        function activateParentMode() {
+            isParentModeActive = true;
+            stopParentInstructionTimer();
+            parentModeInstruction.classList.add('hidden');
+            hideInitialMessages(); // Ensure initial messages are hidden if parent mode is activated early
+
+            // Show parent control panel
+            parentControlPanel.classList.remove('hidden');
+            setTimeout(() => { // Add a slight delay to trigger CSS transition
+                parentControlPanel.classList.add('show');
+            }, 10);
+
+            console.log("Parent Mode Activated!");
+            // Change background to indicate parent mode
+            lockOverlay.style.background = `radial-gradient(circle at center, #333333, #111111)`; // Subtle gray
+            lockOverlay.style.animation = 'none'; // Stop background flow animation
+            lockOverlay.style.backgroundSize = 'cover'; // Reset background size for static color
+        }
+
+        // Function to deactivate parent mode
+        function deactivateParentMode() {
+            isParentModeActive = false;
+            currentSequenceIndex = 0; // Reset sequence
+            lastTapTime = 0; // Reset tap time
+            stopParentInstructionTimer(); // Ensure it's stopped before starting new sequence
+
+            // Hide parent control panel
+            parentControlPanel.classList.remove('show');
+            setTimeout(() => { // Hide after transition
+                parentControlPanel.classList.add('hidden');
+            }, 300); // Match CSS transition duration
+
+            // Reset background to dynamic
+            lockOverlay.style.animation = 'background-flow 30s linear infinite alternate';
+            lockOverlay.style.backgroundSize = '200% 200%';
+            changeBackgroundGradient(); // Set an initial dynamic gradient
+            hasInteracted = false; // Reset interaction flag so initial messages can show again on re-lock
+        }
+
         // Function to generate and display visual feedback
         function generateVisualFeedback(x, y, type, content = '') {
-            if (!isLocked) return; // Only generate feedback when locked
+            if (!isLocked || isParentModeActive) return; // Only generate feedback when locked AND not in parent mode
+
+            // Hide initial messages on first interaction
+            if (!hasInteracted) {
+                hideInitialMessages();
+                // Ensure parent mode instruction starts its cycle only after initial messages are gone
+                startParentInstructionTimer();
+                hasInteracted = true;
+            }
 
             const visualElement = document.createElement('div');
             visualElement.classList.add('visual-element');
             visualElement.style.left = `${x}px`;
             visualElement.style.top = `${y}px`;
-            visualElement.style.color = getRandomElement(colors);
-            visualElement.style.fontSize = `${Math.random() * 60 + 40}px`; // Larger random font size
-            const randomRotation = Math.random() * 360 - 180; // -180 to 180 degrees
-            visualElement.style.setProperty('--random-rotation', `${randomRotation}deg`); // Set CSS variable for rotation
 
-            if (type === 'key') {
-                visualElement.textContent = content || getRandomElement(characters);
-            } else if (type === 'mouse') {
-                visualElement.textContent = getRandomElement(['✨', '💥', '🌈', '🌟', '💧', '💫', '💖', '💡']); // More abstract for mouse
-                visualElement.style.fontSize = `${Math.random() * 70 + 50}px`; // Even larger for mouse
+            const randomRotation = Math.random() * 360 - 180;
+            visualElement.style.setProperty('--random-rotation', `${randomRotation}deg`);
+
+            const driftX = (Math.random() - 0.5) * 100;
+            const driftY = (Math.random() - 0.5) * 100;
+            visualElement.style.setProperty('--drift-x', `${driftX}px`);
+            visualElement.style.setProperty('--drift-y', `${driftY}px`);
+
+            // --- Lesson-specific content generation ---
+            let elementContent = '';
+            let elementColor = getRandomElement(colors); // Default random color
+
+            if (type === 'tap') {
+                if (currentLessonMode === 'color-recognition') {
+                    elementColor = getRandomElement(lessonColors);
+                    elementContent = getRandomElement(lessonShapes); // Use simple shapes for color lesson
+                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
+                } else if (currentLessonMode === 'shape-recognition') {
+                    elementContent = getRandomElement(lessonShapes);
+                    elementColor = getRandomElement(colors); // Random color for shapes
+                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
+                } else if (currentLessonMode === 'letter-number-introduction') {
+                    elementContent = getRandomElement(lessonLettersNumbers);
+                    elementColor = getRandomElement(colors); // Random color for letters/numbers
+                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
+                } else if (currentLessonMode === 'object-animal-vocabulary') {
+                    elementContent = getRandomElement(lessonEmojis);
+                    elementColor = getRandomElement(colors); // Random color for emojis
+                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
+                } else { // 'freeplay' or default
+                    // Defensive check for characters array, handling potential ReferenceError
+                    let sourceArray = characters;
+                    if (typeof characters === 'undefined' || !Array.isArray(characters) || characters.length === 0) {
+                        console.warn("Characters array is undefined, not an array, or empty. Falling back to default.");
+                        sourceArray = ['?', '!', '@']; // Fallback content if characters array is problematic
+                    }
+                    elementContent = getRandomElement(sourceArray);
+                    elementColor = getRandomElement(colors); // Random color
+                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
+                }
+            } else if (type === 'swipe') {
+                elementContent = getRandomElement(['✨', '💥', '🌈', '🌟', '💧', '💫', '💖', '💡']);
+                elementColor = getRandomElement(colors); // Random color for swipe effects
+                visualElement.style.fontSize = `${Math.random() * 30 + 20}px`;
             }
+
+            visualElement.textContent = elementContent;
+            visualElement.style.color = elementColor;
 
             visualFeedbackArea.appendChild(visualElement);
 
-            // Trigger the 'show' class to start the animation
             setTimeout(() => {
                 visualElement.classList.add('show');
-            }, 10); // Small delay to ensure CSS transition applies
+            }, 10);
 
-            // Play a sound
-            Tone.start(); // Ensure audio context is started
-            synth.triggerAttackRelease(getRandomElement(notes), '8n'); // Play a random note for an 8th note duration
+            Tone.start();
+            synth.triggerAttackRelease(getRandomElement(notes), '8n');
 
-            // Remove the element after a short duration
             setTimeout(() => {
                 visualElement.classList.remove('show');
-                visualElement.classList.add('hide'); // Add hide class for fade out effect
+                visualElement.classList.add('hide');
                 visualElement.addEventListener('transitionend', () => {
-                    visualElement.remove(); // Remove from DOM after transition
+                    visualElement.remove();
                 });
-            }, 700); // Element stays visible for 0.7 seconds
+            }, 700);
         }
 
-        // Function to change the background to a random radial gradient
+        // Function to change the background to a random radial gradient (on tap/key)
         function changeBackgroundGradient() {
-            if (!isLocked) return;
+            if (!isLocked || isParentModeActive) return; // Only change background when locked AND not in parent mode
             const color1 = getRandomElement(colors);
             const color2 = getRandomElement(colors);
             lockOverlay.style.background = `radial-gradient(circle at center, ${color1}, ${color2})`;
+            lockOverlay.style.backgroundSize = '200% 200%';
         }
 
-        // Event listener for keydown events
+        // Event listener for keydown events (for physical keyboards/hybrid devices)
         function handleKeyDown(event) {
             if (isLocked) {
-                event.preventDefault(); // Prevent default browser actions (e.g., tab switching, scrolling)
+                event.preventDefault();
 
                 // Check for unlock combination: Ctrl + Shift + L
                 if (event.ctrlKey && event.shiftKey && event.key === 'L') {
                     unlockScreen();
-                } else {
-                    // Generate visual feedback for any other key press
+                } else if (!isParentModeActive) { // Only generate toddler feedback if not in parent mode
                     const x = Math.random() * window.innerWidth;
                     const y = Math.random() * window.innerHeight;
-                    generateVisualFeedback(x, y, 'key', event.key.toUpperCase());
-                    changeBackgroundGradient(); // Change background on key press
+                    generateVisualFeedback(x, y, 'tap', event.key.toUpperCase());
+                    changeBackgroundGradient();
                 }
             }
         }
 
-        // Event listener for mousemove events
-        let lastMouseMoveTime = 0;
-        const mouseMoveThrottle = 50; // Milliseconds to throttle mouse events
-        function handleMouseMove(event) {
+        // Event listener for touchstart (for initial tap)
+        function handleTouchStart(event) {
             if (isLocked) {
-                event.preventDefault(); // Prevent default mouse actions
+                event.preventDefault();
+                isTouching = true;
+
+                const touch = event.touches ? event.touches[0] : event; // Handle both touch and click events
+                const tappedCorner = getCorner(touch.clientX, touch.clientY);
                 const currentTime = Date.now();
-                if (currentTime - lastMouseMoveTime > mouseMoveThrottle) {
-                    generateVisualFeedback(event.clientX, event.clientY, 'mouse');
-                    lastMouseMoveTime = currentTime;
-                    // Change background color less frequently for mouse move
-                    if (Math.random() < 0.05) { // 5% chance to change background
+
+                // Parent Mode Activation Logic
+                if (!isParentModeActive && tappedCorner) { // Only check sequence if not already in parent mode and tapped a corner
+                    if (currentTime - lastTapTime > tapTimeout) {
+                        currentSequenceIndex = 0; // Reset sequence if too much time passed
+                    }
+
+                    if (tappedCorner === parentModeSequence[currentSequenceIndex]) {
+                        currentSequenceIndex++;
+                        if (currentSequenceIndex === parentModeSequence.length) {
+                            activateParentMode();
+                            currentSequenceIndex = 0; // Reset for next time
+                        }
+                    } else {
+                        currentSequenceIndex = 0; // Reset if wrong corner
+                    }
+                    lastTapTime = currentTime;
+                } else if (!isParentModeActive) { // Reset sequence if tap is not in a corner AND not in parent mode
+                    currentSequenceIndex = 0;
+                }
+
+                if (!isParentModeActive) { // Only generate toddler feedback if not in parent mode
+                    generateVisualFeedback(touch.clientX, touch.clientY, 'tap');
+                    changeBackgroundGradient();
+                }
+            }
+        }
+
+        // Event listener for touchmove (for swiping/dragging)
+        let lastTouchMoveTime = 0;
+        const touchMoveThrottle = 30;
+        function handleTouchMove(event) {
+            if (isLocked && isTouching && !isParentModeActive) { // Only generate if locked, touching, and not in parent mode
+                event.preventDefault();
+                const currentTime = Date.now();
+                if (currentTime - lastTouchMoveTime > touchMoveThrottle) {
+                    const touch = event.touches ? event.touches[0] : event; // Handle both touch and mousemove
+                    generateVisualFeedback(touch.clientX, touch.clientY, 'swipe');
+                    lastTouchMoveTime = currentTime;
+                    if (Math.random() < 0.02) {
                         changeBackgroundGradient();
                     }
                 }
             }
         }
 
-        // Event listener for click events
-        function handleClick(event) {
+        // Event listener for touchend (when finger is lifted)
+        function handleTouchEnd(event) {
             if (isLocked) {
-                event.preventDefault(); // Prevent default click actions
-                // Generate visual feedback at click position
-                generateVisualFeedback(event.clientX, event.clientY, 'mouse');
-                changeBackgroundGradient(); // Change background on click
+                isTouching = false;
             }
         }
+
+        // Add event listeners for parent control panel buttons
+        colorBtn.addEventListener('click', () => {
+            currentLessonMode = 'color-recognition';
+            console.log("Lesson Mode: Color Recognition");
+            deactivateParentMode();
+        });
+        shapeBtn.addEventListener('click', () => {
+            currentLessonMode = 'shape-recognition';
+            console.log("Lesson Mode: Shape Recognition");
+            deactivateParentMode();
+        });
+        letterNumberBtn.addEventListener('click', () => {
+            currentLessonMode = 'letter-number-introduction';
+            console.log("Lesson Mode: Letter/Number Introduction");
+            deactivateParentMode();
+        });
+        objectAnimalBtn.addEventListener('click', () => {
+            currentLessonMode = 'object-animal-vocabulary';
+            console.log("Lesson Mode: Object/Animal Vocabulary");
+            deactivateParentMode();
+        });
+        freeplayBtn.addEventListener('click', () => {
+            currentLessonMode = 'freeplay';
+            console.log("Lesson Mode: Freeplay");
+            deactivateParentMode();
+        });
+
 
         // Function to lock the screen
         function lockScreen() {
             isLocked = true;
-            lockOverlay.style.display = 'flex'; // Show the overlay
-            unlockInstructions.style.display = 'block'; // Show instructions
+            lockOverlay.style.display = 'flex';
+            unlockInstructions.style.display = 'block';
             body.classList.remove('unlocked');
             body.classList.add('locked');
-            // Attach event listeners when locked
+
+            // Attach event listeners
             document.addEventListener('keydown', handleKeyDown);
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('click', handleClick);
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd);
+            document.addEventListener('mousemove', handleTouchMove); // Mousemove uses touchmove handler
+            document.addEventListener('click', handleTouchStart); // Click uses touchstart handler
+
+            // Initial state: show toddler messages, hide parent instruction and panel
+            showInitialMessages();
+            parentModeInstruction.classList.add('hidden');
+            parentControlPanel.classList.add('hidden');
+            parentControlPanel.classList.remove('show'); // Ensure it's not in 'show' state
+            hasInteracted = false; // Reset interaction flag
+
+            // After initialMessageDuration, hide toddler messages and start parent instruction cycle
+            setTimeout(() => {
+                // Only transition if toddler hasn't interacted and parent mode isn't active
+                if (!hasInteracted && !isParentModeActive) {
+                    hideInitialMessages();
+                    startParentInstructionTimer();
+                }
+            }, initialMessageDuration);
+
+            deactivateParentMode(); // Ensure we start in toddler mode with instruction visible
         }
 
         // Function to unlock the screen
         function unlockScreen() {
             isLocked = false;
-            lockOverlay.style.display = 'none'; // Hide the overlay
-            unlockInstructions.style.display = 'none'; // Hide instructions
+            lockOverlay.style.display = 'none';
+            unlockInstructions.style.display = 'none';
             body.classList.remove('locked');
             body.classList.add('unlocked');
-            // Remove event listeners when unlocked
+
+            // Remove event listeners
             document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('click', handleClick);
+            document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+            document.removeEventListener('mousemove', handleTouchMove);
+            document.removeEventListener('click', handleTouchStart);
+
+            stopParentInstructionTimer(); // Stop instruction timer when unlocked
+            deactivateParentMode(); // Ensure parent mode is off if unlocked
         }
 
         // Initialize the screen as locked when the page loads
@@ -278,3 +622,4 @@
     </script>
 </body>
 </html>
+�
