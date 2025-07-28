@@ -117,31 +117,67 @@
         .parent-panel button {
             @apply flex-grow md:flex-grow-0 px-4 py-2 rounded-lg font-bold shadow-md transition-all duration-200;
             min-width: 180px; /* Ensure buttons have a minimum width for readability */
-            background-color: rgba(74, 74, 74, 0.8); /* Darker gray to match theme, slightly transparent */
-            border: 2px solid #6A0572; /* Purple border */
+            font-size: 1.5rem; /* Make text larger */
+            background-color: transparent; /* No background color */
+            border: none; /* No border */
             color: #D14081; /* Vibrant purple text */
-            cursor: pointer;
+            box-shadow: none; /* No shadow */
+            padding: 0.5rem 1rem; /* Adjust padding for text-like buttons */
         }
 
         .parent-panel button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-            background-color: rgba(102, 102, 102, 0.8); /* Slightly lighter gray on hover */
-            border-color: #F08A5D; /* Orange border on hover */
+            transform: none; /* No translateY effect */
+            box-shadow: none; /* No shadow on hover */
+            background-color: transparent; /* Still no background on hover */
+            border: none; /* Still no border on hover */
             color: #FFD166; /* Yellow text on hover */
         }
 
-        /* Specific styling for "Back to Parent Menu" button */
-        .back-button {
-            background-color: rgba(40, 40, 40, 0.8) !important; /* Even darker gray */
-            border-color: #118AB2 !important; /* Blue border */
+        /* Specific styling for "Back to Parent Menu" button (at bottom of sub-panels) */
+        .back-to-parent-menu-btn { /* Renamed for clarity */
+            background-color: transparent !important;
+            border: none !important;
             color: #06D6A0 !important; /* Green text */
+            box-shadow: none !important;
         }
 
-        .back-button:hover {
-            background-color: rgba(60, 60, 60, 0.8) !important;
-            border-color: #2EC4B6 !important; /* Lighter blue border */
-            color: #FFD166 !important; /* Yellow text on hover */
+        .back-to-parent-menu-btn:hover {
+            background-color: transparent !important;
+            border: none !important;
+            color: #FFD166 !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Top-left back button specific styling (for active lesson screen) */
+        #back-to-parent-menu-from-lesson {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            z-index: 10001; /* Ensure it's above other panel elements */
+            font-size: 1.2rem; /* Slightly smaller than main buttons */
+            color: #06D6A0; /* Green text */
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            transition: color 0.2s ease-in-out;
+        }
+
+        #back-to-parent-menu-from-lesson:hover {
+            color: #FFD166; /* Yellow text on hover */
+        }
+
+        /* Canvas for tracing */
+        #tracing-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; /* Below visual-feedback-area, above background */
+            pointer-events: none; /* Initially don't block events */
         }
     </style>
 </head>
@@ -161,6 +197,11 @@
         </p>
         <!-- This area will be dynamically populated with visual feedback -->
         <div id="visual-feedback-area"></div>
+        <!-- Canvas for tracing -->
+        <canvas id="tracing-canvas"></canvas>
+
+        <!-- New: Back to Parent Menu button visible during active lesson play -->
+        <button id="back-to-parent-menu-from-lesson" class="top-left-back-button hidden">Back to Parent Menu</button>
     </div>
 
     <!-- Main Parent Control Panel -->
@@ -168,7 +209,6 @@
         <button id="color-recognition-btn">Color Recognition</button>
         <button id="shape-recognition-btn">Shape Recognition</button>
         <button id="letter-number-btn">Letter/Number Introduction</button>
-        <button id="object-animal-btn">Object/Animal Vocabulary</button>
         <button id="freeplay-btn">Back to Freeplay</button>
     </div>
 
@@ -176,25 +216,19 @@
     <div id="color-lesson-panel" class="parent-panel hidden">
         <button id="color-primary-btn">Primary Colors</button>
         <button id="color-all-btn">All Colors</button>
-        <button class="back-button" id="color-back-btn">Back to Parent Menu</button>
+        <button class="back-to-parent-menu-btn" id="color-back-btn">Back to Parent Menu</button>
     </div>
 
     <div id="shape-lesson-panel" class="parent-panel hidden">
         <button id="shape-basic-btn">Basic Shapes</button>
         <button id="shape-advanced-btn">Advanced Shapes</button>
-        <button class="back-button" id="shape-back-btn">Back to Parent Menu</button>
+        <button class="back-to-parent-menu-btn" id="shape-back-btn">Back to Parent Menu</button>
     </div>
 
     <div id="letter-number-lesson-panel" class="parent-panel hidden">
         <button id="letter-az-btn">Letters (A-Z)</button>
         <button id="number-09-btn">Numbers (0-9)</button>
-        <button class="back-button" id="letter-number-back-btn">Back to Parent Menu</button>
-    </div>
-
-    <div id="object-animal-lesson-panel" class="parent-panel hidden">
-        <button id="object-animal-btn-animals">Animals</button>
-        <button id="object-animal-btn-objects">Objects/Vehicles</button>
-        <button class="back-button" id="object-animal-back-btn">Back to Parent Menu</button>
+        <button class="back-to-parent-menu-btn" id="letter-number-back-btn">Back to Parent Menu</button>
     </div>
 
     <script>
@@ -205,12 +239,13 @@
         const mainMessage = document.getElementById('main-message');
         const parentModeInstruction = document.getElementById('parent-mode-instruction');
         const parentControlPanel = document.getElementById('parent-control-panel');
+        const tracingCanvas = document.getElementById('tracing-canvas');
+        const ctx = tracingCanvas.getContext('2d'); // Get 2D rendering context
 
         // Get references to parent mode buttons
         const colorBtn = document.getElementById('color-recognition-btn');
         const shapeBtn = document.getElementById('shape-recognition-btn');
         const letterNumberBtn = document.getElementById('letter-number-btn');
-        const objectAnimalBtn = document.getElementById('object-animal-btn'); // This ID is reused, will need to fix.
         const freeplayBtn = document.getElementById('freeplay-btn');
 
         // Get references to lesson specific panels and their buttons
@@ -229,11 +264,8 @@
         const number09Btn = document.getElementById('number-09-btn');
         const letterNumberBackBtn = document.getElementById('letter-number-back-btn');
 
-        const objectAnimalLessonPanel = document.getElementById('object-animal-lesson-panel');
-        const objectAnimalBtnAnimals = document.getElementById('object-animal-btn-animals'); // Corrected ID
-        const objectAnimalBtnObjects = document.getElementById('object-animal-btn-objects'); // Corrected ID
-        const objectAnimalBackBtn = document.getElementById('object-animal-back-btn');
-
+        // New button for returning to parent menu from active lesson
+        const backToParentMenuFromLessonBtn = document.getElementById('back-to-parent-menu-from-lesson');
 
         const body = document.body;
 
@@ -244,6 +276,7 @@
         let isParentModeActive = false; // New flag for parent mode
         let currentLessonMode = 'freeplay'; // Default lesson mode
         let audioContextStarted = false; // Flag to track if Tone.js audio context has started
+        let isTracingModeActive = false; // New flag for tracing lessons
 
         // Parent Mode Activation Sequence
         const parentModeSequence = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
@@ -287,13 +320,9 @@
         ];
         const lessonNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
-        // Emojis for 'object-animal-vocabulary' lesson
-        const lessonEmojisAnimals = ['🐸', '🐢', '🐥', '🐠', '🦋', '🐾'];
-        const lessonEmojisObjects = ['🚗', '🚂', '🚁', '🚲', '🧸', '⚽', '🎨', '🧩', '👑', '🍄', '🍎', '🍊', '🍋', '🍉', '🍇', '🍓'];
-
         // All characters/emojis for freeplay
         const characters = [
-            ...lessonLetters, ...lessonNumbers, ...lessonEmojisAnimals, ...lessonEmojisObjects,
+            ...lessonLetters, ...lessonNumbers,
             '⭐', '🌈', '🎉', '🎈', '✨', '🚀', '💖', '💡', '🎵', '🌸', '🌳', '☀️', '🌙', '☁️'
         ];
 
@@ -322,18 +351,25 @@
             // Clear any existing timer
             if (parentInstructionTimer) clearInterval(parentInstructionTimer);
 
-            function showAndHideParentInstruction() {
-                parentModeInstruction.classList.remove('hidden');
-                parentModeInstruction.classList.add('animate-heartbeat'); // Ensure animation is active
-                setTimeout(() => {
-                    parentModeInstruction.classList.add('hidden');
-                    parentModeInstruction.classList.remove('animate-heartbeat'); // Remove animation when hidden
-                }, instructionShowDuration);
-            }
+            // Only start instruction timer if in freeplay mode
+            if (currentLessonMode === 'freeplay') {
+                function showAndHideParentInstruction() {
+                    parentModeInstruction.classList.remove('hidden');
+                    parentModeInstruction.classList.add('animate-heartbeat'); // Ensure animation is active
+                    setTimeout(() => {
+                        parentModeInstruction.classList.add('hidden');
+                        parentModeInstruction.classList.remove('animate-heartbeat'); // Remove animation when hidden
+                    }, instructionShowDuration);
+                }
 
-            // Show immediately, then set interval for repeated show/hide
-            showAndHideParentInstruction();
-            parentInstructionTimer = setInterval(showAndHideParentInstruction, instructionHideDuration + instructionShowDuration);
+                // Show immediately, then set interval for repeated show/hide
+                showAndHideParentInstruction();
+                parentInstructionTimer = setInterval(showAndHideParentInstruction, instructionHideDuration + instructionShowDuration);
+            } else {
+                // If not in freeplay, ensure instruction is hidden
+                parentModeInstruction.classList.add('hidden');
+                parentModeInstruction.classList.remove('animate-heartbeat');
+            }
         }
 
         function stopParentInstructionTimer() {
@@ -365,7 +401,7 @@
 
         // Function to hide all lesson panels
         function hideAllLessonPanels() {
-            const panels = [parentControlPanel, colorLessonPanel, shapeLessonPanel, letterNumberLessonPanel, objectAnimalLessonPanel];
+            const panels = [parentControlPanel, colorLessonPanel, shapeLessonPanel, letterNumberLessonPanel];
             panels.forEach(panel => {
                 panel.classList.remove('show');
                 panel.classList.add('hidden');
@@ -384,8 +420,8 @@
         // Function to activate parent mode (show main parent menu)
         function activateParentMode() {
             isParentModeActive = true;
-            stopParentInstructionTimer();
-            parentModeInstruction.classList.add('hidden');
+            stopParentInstructionTimer(); // Stop instruction timer when entering parent mode
+            parentModeInstruction.classList.add('hidden'); // Ensure it's hidden
             hideInitialMessages(); // Ensure initial messages are hidden if parent mode is activated early
 
             showLessonPanel(parentControlPanel); // Show the main parent control panel
@@ -395,16 +431,36 @@
             lockOverlay.style.background = `radial-gradient(circle at center, #333333, #111111)`; // Subtle gray
             lockOverlay.style.animation = 'none'; // Stop background flow animation
             lockOverlay.style.backgroundSize = 'cover'; // Reset background size for static color
+
+            // Hide the "Back to Parent Menu" button that appears during active lesson play
+            backToParentMenuFromLessonBtn.classList.add('hidden');
         }
 
-        // Function to deactivate parent mode (return to toddler freeplay)
+        // Function to deactivate parent mode (return to toddler freeplay or active lesson)
         function deactivateParentMode() {
             isParentModeActive = false;
             currentSequenceIndex = 0; // Reset sequence
             lastTapTime = 0; // Reset tap time
-            stopParentInstructionTimer(); // Ensure it's stopped before starting new sequence
 
             hideAllLessonPanels(); // Hide all parent/lesson panels
+
+            // Reset tracing mode
+            isTracingModeActive = false;
+            clearCanvas(); // Clear anything drawn on the canvas
+
+            // Show the "Back to Parent Menu" button if we are entering a lesson mode (not freeplay)
+            if (currentLessonMode !== 'freeplay') {
+                backToParentMenuFromLessonBtn.classList.remove('hidden');
+            } else {
+                backToParentMenuFromLessonBtn.classList.add('hidden');
+            }
+
+            // Start parent instruction timer ONLY if in freeplay mode
+            if (currentLessonMode === 'freeplay') {
+                startParentInstructionTimer();
+            } else {
+                stopParentInstructionTimer(); // Ensure it's stopped if not in freeplay
+            }
 
             // Reset background to dynamic
             lockOverlay.style.animation = 'background-flow 30s linear infinite alternate';
@@ -412,6 +468,293 @@
             changeBackgroundGradient(); // Set an initial dynamic gradient
             hasInteracted = false; // Reset interaction flag so initial messages can show again on re-lock
         }
+
+        // New function to return to parent menu from an active lesson display
+        function returnToParentMenuFromLesson() {
+            isParentModeActive = true; // Re-activate parent mode
+            isTracingModeActive = false; // Ensure tracing is off
+            clearCanvas(); // Clear canvas
+            stopParentInstructionTimer(); // Ensure instruction timer is stopped
+
+            // Hide the "Back to Parent Menu" button from lesson display
+            backToParentMenuFromLessonBtn.classList.add('hidden');
+
+            showLessonPanel(parentControlPanel); // Show the main parent control panel
+
+            // Set background to parent mode theme
+            lockOverlay.style.background = `radial-gradient(circle at center, #333333, #111111)`;
+            lockOverlay.style.animation = 'none';
+            lockOverlay.style.backgroundSize = 'cover';
+            console.log("Returned to Parent Menu from Lesson.");
+        }
+
+
+        // --- Canvas Drawing Functions for Tracing ---
+        function clearCanvas() {
+            ctx.clearRect(0, 0, tracingCanvas.width, tracingCanvas.height);
+            tracingCanvas.style.pointerEvents = 'none'; // Disable pointer events on canvas when not tracing
+        }
+
+        function resizeCanvas() {
+            tracingCanvas.width = window.innerWidth;
+            tracingCanvas.height = window.innerHeight;
+            // Redraw content if needed after resize (important for tracing)
+            if (isTracingModeActive && currentTargetToTrace) {
+                drawOutline(currentTargetToTrace.type, currentTargetToTrace.content);
+            }
+        }
+
+        let currentTargetToTrace = null; // Stores { type: 'shape'/'letter', content: '●'/'A' }
+
+        function drawOutline(type, content) {
+            clearCanvas();
+            tracingCanvas.style.pointerEvents = 'auto'; // Enable pointer events on canvas for tracing
+
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // Faint white outline
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Center the drawing
+            const centerX = tracingCanvas.width / 2;
+            const centerY = tracingCanvas.height / 2;
+            const size = Math.min(tracingCanvas.width, tracingCanvas.height) * 0.4; // Responsive size
+
+            ctx.save(); // Save current context state
+            ctx.translate(centerX, centerY); // Move origin to center
+
+            if (type === 'shape') {
+                ctx.beginPath();
+                if (content === '●') { // Circle
+                    ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+                } else if (content === '■') { // Square
+                    ctx.rect(-size / 2, -size / 2, size, size);
+                } else if (content === '▲') { // Triangle
+                    ctx.moveTo(0, -size / 2);
+                    ctx.lineTo(size / 2, size / 2);
+                    ctx.lineTo(-size / 2, size / 2);
+                    ctx.closePath();
+                } else if (content === '★') { // Star (simplified)
+                    const outerRadius = size / 2;
+                    const innerRadius = outerRadius / 2.5;
+                    let rot = Math.PI / 2 * 3;
+                    let x = 0;
+                    let y = 0;
+                    const step = Math.PI / 5;
+
+                    ctx.moveTo(0, -outerRadius);
+                    for (let i = 0; i < 5; i++) {
+                        x = outerRadius * Math.cos(rot);
+                        y = outerRadius * Math.sin(rot);
+                        ctx.lineTo(x, y);
+                        rot += step;
+
+                        x = innerRadius * Math.cos(rot);
+                        y = innerRadius * Math.sin(rot);
+                        ctx.lineTo(x, y);
+                        rot += step;
+                    }
+                    ctx.closePath();
+                } else if (content === '◆') { // Diamond
+                    ctx.moveTo(0, -size / 2);
+                    ctx.lineTo(size / 2, 0);
+                    ctx.lineTo(0, size / 2);
+                    ctx.lineTo(-size / 2, 0);
+                    ctx.closePath();
+                } else if (content === '❤') { // Heart (simplified)
+                    ctx.moveTo(0, size * 0.2);
+                    ctx.bezierCurveTo(size * 0.5, -size * 0.5, size, size * 0.1, 0, size * 0.8);
+                    ctx.bezierCurveTo(-size, size * 0.1, -size * 0.5, -size * 0.5, 0, size * 0.2);
+                    ctx.closePath();
+                } else if (content === '⭐') { // Another star variation if needed, or fallback
+                    const outerRadius = size / 2;
+                    const innerRadius = outerRadius * 0.4; // Adjust for a different star look
+                    let rot = Math.PI / 2 * 3;
+                    let x = 0;
+                    let y = 0;
+                    const step = Math.PI / 5;
+
+                    ctx.moveTo(0, -outerRadius);
+                    for (let i = 0; i < 5; i++) {
+                        x = outerRadius * Math.cos(rot);
+                        y = outerRadius * Math.sin(rot);
+                        ctx.lineTo(x, y);
+                        rot += step;
+
+                        x = innerRadius * Math.cos(rot);
+                        y = innerRadius * Math.sin(rot);
+                        ctx.lineTo(x, y);
+                        rot += step;
+                    }
+                    ctx.closePath();
+                }
+                ctx.stroke();
+            } else if (type === 'letter' || type === 'number') {
+                ctx.font = `${size * 0.8}px 'Inter', sans-serif`; // Adjust font size for responsiveness
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.strokeText(content, 0, 0); // Draw text outline
+            }
+            ctx.restore(); // Restore context state
+        }
+
+        // --- Tracing Interaction Logic ---
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        function startDrawing(e) {
+            if (!isLocked || !isTracingModeActive) return;
+            isDrawing = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            [lastX, lastY] = [clientX, clientY];
+            // Start a new path for each new stroke
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineWidth = 20; // Thickness of the trace line
+            ctx.strokeStyle = getRandomElement(colors); // Random vibrant color for the trace
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        function draw(e) {
+            if (!isDrawing || !isLocked || !isTracingModeActive) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            ctx.lineTo(clientX, clientY);
+            ctx.stroke();
+            [lastX, lastY] = [clientX, clientY];
+
+            // Simple completion check: if a certain amount of drawing has occurred,
+            // or if the user lifts their finger after a substantial drag.
+            // For now, let's just redraw a new outline after a short continuous drag.
+            // A more robust completion check (e.g., path coverage) would be complex.
+        }
+
+        function stopDrawing() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            // After a stroke, briefly fill the outline for completion feedback
+            if (currentTargetToTrace) {
+                ctx.save();
+                ctx.translate(tracingCanvas.width / 2, tracingCanvas.height / 2);
+                ctx.fillStyle = getRandomElement(colors); // Fill with a vibrant color
+                if (currentTargetToTrace.type === 'shape') {
+                    // Redraw the shape and fill it
+                    ctx.beginPath();
+                    const size = Math.min(tracingCanvas.width, tracingCanvas.height) * 0.4;
+                    if (currentTargetToTrace.content === '●') { // Circle
+                        ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+                    } else if (currentTargetToTrace.content === '■') { // Square
+                        ctx.rect(-size / 2, -size / 2, size, size);
+                    } else if (currentTargetToTrace.content === '▲') { // Triangle
+                        ctx.moveTo(0, -size / 2);
+                        ctx.lineTo(size / 2, size / 2);
+                        ctx.lineTo(-size / 2, size / 2);
+                        ctx.closePath();
+                    } else if (currentTargetToTrace.content === '★') { // Star (simplified)
+                        const outerRadius = size / 2;
+                        const innerRadius = outerRadius / 2.5;
+                        let rot = Math.PI / 2 * 3;
+                        let x = 0;
+                        let y = 0;
+                        const step = Math.PI / 5;
+
+                        ctx.moveTo(0, -outerRadius);
+                        for (let i = 0; i < 5; i++) {
+                            x = outerRadius * Math.cos(rot);
+                            y = outerRadius * Math.sin(rot);
+                            ctx.lineTo(x, y);
+                            rot += step;
+
+                            x = innerRadius * Math.cos(rot);
+                            y = innerRadius * Math.sin(rot);
+                            ctx.lineTo(x, y);
+                            rot += step;
+                        }
+                        ctx.closePath();
+                    } else if (currentTargetToTrace.content === '◆') { // Diamond
+                        ctx.moveTo(0, -size / 2);
+                        ctx.lineTo(size / 2, 0);
+                        ctx.lineTo(0, size / 2);
+                        ctx.lineTo(-size / 2, 0);
+                        ctx.closePath();
+                    } else if (currentTargetToTrace.content === '❤') { // Heart (simplified)
+                        ctx.moveTo(0, size * 0.2);
+                        ctx.bezierCurveTo(size * 0.5, -size * 0.5, size, size * 0.1, 0, size * 0.8);
+                        ctx.bezierCurveTo(-size, size * 0.1, -size * 0.5, -size * 0.5, 0, size * 0.2);
+                        ctx.closePath();
+                    } else if (currentTargetToTrace.content === '⭐') { // Another star variation if needed, or fallback
+                        const outerRadius = size / 2;
+                        const innerRadius = outerRadius * 0.4; // Adjust for a different star look
+                        let rot = Math.PI / 2 * 3;
+                        let x = 0;
+                        let y = 0;
+                        const step = Math.PI / 5;
+
+                        ctx.moveTo(0, -outerRadius);
+                        for (let i = 0; i < 5; i++) {
+                            x = outerRadius * Math.cos(rot);
+                            y = outerRadius * Math.sin(rot);
+                            ctx.lineTo(x, y);
+                            rot += step;
+
+                            x = innerRadius * Math.cos(rot);
+                            y = innerRadius * Math.sin(rot);
+                            ctx.lineTo(x, y);
+                            rot += step;
+                        }
+                        ctx.closePath();
+                    }
+                    ctx.fill(); // Fill the shape
+                } else if (currentTargetToTrace.type === 'letter' || currentTargetToTrace.type === 'number') {
+                    const size = Math.min(tracingCanvas.width, tracingCanvas.height) * 0.4;
+                    ctx.font = `${size * 0.8}px 'Inter', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(currentTargetToTrace.content, 0, 0); // Fill the text
+                }
+                ctx.restore();
+
+                // Play a completion sound (if sounds were enabled)
+                // synth.triggerAttackRelease('C6', '8n'); // Example high note for completion
+
+                // After a short delay, draw a new tracing target
+                setTimeout(() => {
+                    startNewTracingTarget();
+                }, 700); // Short delay for visual feedback
+            }
+        }
+
+        // Function to start a new tracing target based on currentLessonMode
+        function startNewTracingTarget() {
+            let targetContent = '';
+            let targetType = '';
+
+            if (currentLessonMode === 'shape-basic') {
+                targetContent = getRandomElement(lessonShapesBasic);
+                targetType = 'shape';
+            } else if (currentLessonMode === 'shape-advanced') {
+                targetContent = getRandomElement(lessonShapesAdvanced);
+                targetType = 'shape';
+            } else if (currentLessonMode === 'letter-az') {
+                targetContent = getRandomElement(lessonLetters);
+                targetType = 'letter';
+            } else if (currentLessonMode === 'number-09') {
+                targetContent = getRandomElement(lessonNumbers);
+                targetType = 'number';
+            }
+
+            if (targetContent) {
+                currentTargetToTrace = { type: targetType, content: targetContent };
+                drawOutline(targetType, targetContent);
+            } else {
+                clearCanvas(); // Clear canvas if no tracing target is set
+            }
+        }
+
 
         // Function to generate and display visual feedback
         async function generateVisualFeedback(x, y, type, content = '') {
@@ -423,12 +766,16 @@
             }
 
             if (!isLocked || isParentModeActive) return; // Only generate feedback when locked AND not in parent mode
+            if (isTracingModeActive) return; // Do not generate pop-ups if in tracing mode
 
             // Hide initial messages on first interaction
             if (!hasInteracted) {
                 hideInitialMessages();
                 // Ensure parent mode instruction starts its cycle only after initial messages are gone
-                startParentInstructionTimer();
+                // This call is now conditional on currentLessonMode === 'freeplay'
+                if (currentLessonMode === 'freeplay') {
+                    startParentInstructionTimer();
+                }
                 hasInteracted = true;
             }
 
@@ -458,31 +805,7 @@
                     elementColor = getRandomElement(lessonColorsAll);
                     elementContent = getRandomElement(lessonShapesBasic); // Use basic shapes for color lesson
                     visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else if (currentLessonMode === 'shape-basic') {
-                    elementContent = getRandomElement(lessonShapesBasic);
-                    elementColor = getRandomElement(colors); // Random color for shapes
-                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else if (currentLessonMode === 'shape-advanced') {
-                    elementContent = getRandomElement(lessonShapesAdvanced);
-                    elementColor = getRandomElement(colors); // Random color for shapes
-                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else if (currentLessonMode === 'letter-az') {
-                    elementContent = getRandomElement(lessonLetters);
-                    elementColor = getRandomElement(colors); // Random color for letters
-                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else if (currentLessonMode === 'number-09') {
-                    elementContent = getRandomElement(lessonNumbers);
-                    elementColor = getRandomElement(colors); // Random color for numbers
-                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else if (currentLessonMode === 'object-animal-animals') {
-                    elementContent = getRandomElement(lessonEmojisAnimals);
-                    elementColor = getRandomElement(colors); // Random color for animal emojis
-                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else if (currentLessonMode === 'object-animal-objects') {
-                    elementContent = getRandomElement(lessonEmojisObjects);
-                    elementColor = getRandomElement(colors); // Random color for object emojis
-                    visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
-                } else { // 'freeplay' or default
+                } else if (currentLessonMode === 'freeplay') { // Only freeplay generates random characters/emojis
                     let sourceArray = characters;
                     if (typeof characters === 'undefined' || !Array.isArray(characters) || characters.length === 0) {
                         console.warn("Characters array is undefined, not an array, or empty. Falling back to default.");
@@ -492,11 +815,19 @@
                     elementColor = getRandomElement(colors); // Random color
                     visualElement.style.fontSize = `${Math.random() * 60 + 40}px`;
                 }
+                // Tracing modes (shape-basic, shape-advanced, letter-az, number-09) will not generate pop-ups here
+                // They will handle their own visual feedback on the canvas
             } else if (type === 'swipe') {
-                elementContent = getRandomElement(['✨', '💥', '🌈', '🌟', '💧', '💫', '💖', '💡']);
-                elementColor = getRandomElement(colors); // Random color for swipe effects
-                visualElement.style.fontSize = `${Math.random() * 30 + 20}px`;
+                if (currentLessonMode === 'freeplay' || currentLessonMode.startsWith('color-')) { // Swipes only generate pop-ups in freeplay or color modes
+                    elementContent = getRandomElement(['✨', '�', '🌈', '🌟', '💧', '💫', '💖', '💡']);
+                    elementColor = getRandomElement(colors); // Random color for swipe effects
+                    visualElement.style.fontSize = `${Math.random() * 30 + 20}px`;
+                } else {
+                    return; // Don't generate swipe effects in tracing modes
+                }
             }
+
+            if (!elementContent) return; // Don't append if no content determined (e.g., in tracing mode)
 
             visualElement.textContent = elementContent;
             visualElement.style.color = elementColor;
@@ -520,7 +851,7 @@
 
         // Function to change the background to a random radial gradient (on tap/key)
         function changeBackgroundGradient() {
-            if (!isLocked || isParentModeActive) return; // Only change background when locked AND not in parent mode
+            if (!isLocked || isParentModeActive || isTracingModeActive) return; // Only change background when locked, not in parent mode, and not tracing
             const color1 = getRandomElement(colors);
             const color2 = getRandomElement(colors);
             lockOverlay.style.background = `radial-gradient(circle at center, ${color1}, ${color2})`;
@@ -542,7 +873,7 @@
                 // Check for unlock combination: Ctrl + Shift + L
                 if (event.ctrlKey && event.shiftKey && event.key === 'L') {
                     unlockScreen();
-                } else if (!isParentModeActive) { // Only generate toddler feedback if not in parent mode
+                } else if (!isParentModeActive && !isTracingModeActive) { // Only generate toddler feedback if not in parent mode or tracing
                     const x = Math.random() * window.innerWidth;
                     const y = Math.random() * window.innerHeight;
                     generateVisualFeedback(x, y, 'tap', event.key.toUpperCase());
@@ -561,7 +892,7 @@
             }
 
             if (isLocked) {
-                event.preventDefault();
+                event.preventDefault(); // Prevent default touch actions like scrolling/zooming/selection
                 isTouching = true;
 
                 const touch = event.touches ? event.touches[0] : event; // Handle both touch and click events
@@ -592,8 +923,12 @@
                 }
 
                 if (!isParentModeActive) { // Only generate toddler feedback if not in parent mode
-                    generateVisualFeedback(touch.clientX, touch.clientY, 'tap');
-                    changeBackgroundGradient();
+                    if (isTracingModeActive) {
+                        startDrawing(event); // Start drawing on canvas if in tracing mode
+                    } else {
+                        generateVisualFeedback(touch.clientX, touch.clientY, 'tap');
+                        changeBackgroundGradient();
+                    }
                 }
             }
         }
@@ -603,9 +938,11 @@
         const touchMoveThrottle = 30;
         function handleTouchMove(event) {
             if (isLocked && isTouching && !isParentModeActive) { // Only generate if locked, touching, and not in parent mode
-                event.preventDefault();
+                event.preventDefault(); // Prevent default touch actions
                 const currentTime = Date.now();
-                if (currentTime - lastTouchMoveTime > touchMoveThrottle) {
+                if (isTracingModeActive) {
+                    draw(event); // Draw on canvas if in tracing mode
+                } else if (currentTime - lastTouchMoveTime > touchMoveThrottle) {
                     const touch = event.touches ? event.touches[0] : event; // Handle both touch and mousemove
                     generateVisualFeedback(touch.clientX, touch.clientY, 'swipe');
                     lastTouchMoveTime = currentTime;
@@ -620,6 +957,9 @@
         function handleTouchEnd(event) {
             if (isLocked) {
                 isTouching = false;
+                if (isTracingModeActive) {
+                    stopDrawing(); // Stop drawing on canvas if in tracing mode
+                }
             }
         }
 
@@ -627,61 +967,71 @@
         colorBtn.addEventListener('click', () => { showLessonPanel(colorLessonPanel); });
         shapeBtn.addEventListener('click', () => { showLessonPanel(shapeLessonPanel); });
         letterNumberBtn.addEventListener('click', () => { showLessonPanel(letterNumberLessonPanel); });
-        objectAnimalBtn.addEventListener('click', () => { showLessonPanel(objectAnimalLessonPanel); }); // This was the main button, now it's a specific one.
         freeplayBtn.addEventListener('click', () => {
             currentLessonMode = 'freeplay';
             console.log("Lesson Mode: Freeplay");
-            deactivateParentMode();
+            deactivateParentMode(); // This correctly takes us back to freeplay
         });
 
         // --- Event Listeners for Lesson Specific Buttons ---
         colorPrimaryBtn.addEventListener('click', () => {
             currentLessonMode = 'color-primary';
+            isTracingModeActive = false; // Ensure tracing is off for color lessons
+            clearCanvas(); // Clear canvas if coming from tracing
             console.log("Lesson Mode: Color - Primary Colors");
-            deactivateParentMode();
+            deactivateParentMode(); // This returns to toddler interaction
         });
         colorAllBtn.addEventListener('click', () => {
             currentLessonMode = 'color-all';
+            isTracingModeActive = false; // Ensure tracing is off for color lessons
+            clearCanvas(); // Clear canvas if coming from tracing
             console.log("Lesson Mode: Color - All Colors");
-            deactivateParentMode();
+            deactivateParentMode(); // This returns to toddler interaction
         });
-        colorBackBtn.addEventListener('click', () => { showLessonPanel(parentControlPanel); });
+        colorBackBtn.addEventListener('click', () => { showLessonPanel(parentControlPanel); }); // Bottom Back to Parent Menu
 
         shapeBasicBtn.addEventListener('click', () => {
             currentLessonMode = 'shape-basic';
-            console.log("Lesson Mode: Shape - Basic Shapes");
-            deactivateParentMode();
+            isTracingModeActive = true; // Activate tracing for shapes
+            console.log("Lesson Mode: Shape - Basic Shapes (Tracing)");
+            deactivateParentMode(); // This returns to toddler interaction
+            startNewTracingTarget(); // Start drawing the first shape for tracing
         });
         shapeAdvancedBtn.addEventListener('click', () => {
             currentLessonMode = 'shape-advanced';
-            console.log("Lesson Mode: Shape - Advanced Shapes");
-            deactivateParentMode();
+            isTracingModeActive = true; // Activate tracing for shapes
+            console.log("Lesson Mode: Shape - Advanced Shapes (Tracing)");
+            deactivateParentMode(); // This returns to toddler interaction
+            startNewTracingTarget(); // Start drawing the first shape for tracing
         });
-        shapeBackBtn.addEventListener('click', () => { showLessonPanel(parentControlPanel); });
+        shapeBackBtn.addEventListener('click', () => {
+            isTracingModeActive = false; // Deactivate tracing when going back to menu
+            clearCanvas(); // Clear canvas
+            showLessonPanel(parentControlPanel);
+        });
 
         letterAZBtn.addEventListener('click', () => {
             currentLessonMode = 'letter-az';
-            console.log("Lesson Mode: Letter/Number - Letters (A-Z)");
-            deactivateParentMode();
+            isTracingModeActive = true; // Activate tracing for letters
+            console.log("Lesson Mode: Letter/Number - Letters (A-Z) (Tracing)");
+            deactivateParentMode(); // This returns to toddler interaction
+            startNewTracingTarget(); // Start drawing the first letter for tracing
         });
         number09Btn.addEventListener('click', () => {
             currentLessonMode = 'number-09';
-            console.log("Lesson Mode: Letter/Number - Numbers (0-9)");
-            deactivateParentMode();
+            isTracingModeActive = true; // Activate tracing for numbers
+            console.log("Lesson Mode: Letter/Number - Numbers (0-9) (Tracing)");
+            deactivateParentMode(); // This returns to toddler interaction
+            startNewTracingTarget(); // Start drawing the first number for tracing
         });
-        letterNumberBackBtn.addEventListener('click', () => { showLessonPanel(parentControlPanel); });
+        letterNumberBackBtn.addEventListener('click', () => {
+            isTracingModeActive = false; // Deactivate tracing when going back to menu
+            clearCanvas(); // Clear canvas
+            showLessonPanel(parentControlPanel);
+        });
 
-        objectAnimalBtnAnimals.addEventListener('click', () => {
-            currentLessonMode = 'object-animal-animals';
-            console.log("Lesson Mode: Object/Animal - Animals");
-            deactivateParentMode();
-        });
-        objectAnimalBtnObjects.addEventListener('click', () => {
-            currentLessonMode = 'object-animal-objects';
-            console.log("Lesson Mode: Object/Animal - Objects/Vehicles");
-            deactivateParentMode();
-        });
-        objectAnimalBackBtn.addEventListener('click', () => { showLessonPanel(parentControlPanel); });
+        // Event listener for the new "Back to Parent Menu" button visible during active lesson play
+        backToParentMenuFromLessonBtn.addEventListener('click', returnToParentMenuFromLesson);
 
 
         // Function to lock the screen
@@ -693,28 +1043,33 @@
 
             // Attach event listeners
             document.addEventListener('keydown', handleKeyDown);
-            document.addEventListener('touchstart', handleTouchStart, { passive: false });
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
-            document.addEventListener('touchend', handleTouchEnd);
-            document.addEventListener('mousemove', handleTouchMove); // Mousemove uses touchmove handler
-            document.addEventListener('click', handleTouchStart); // Click uses touchstart handler
+            // Attach touch and mouse events to lockOverlay directly
+            lockOverlay.addEventListener('touchstart', handleTouchStart, { passive: false });
+            lockOverlay.addEventListener('touchmove', handleTouchMove, { passive: false });
+            lockOverlay.addEventListener('touchend', handleTouchEnd);
+            lockOverlay.addEventListener('mousemove', handleTouchMove); // Mousemove uses touchmove handler
+            lockOverlay.addEventListener('click', handleTouchStart); // Click uses touchstart handler for now, as it also triggers the parent mode sequence logic
 
-            // Initial state: show toddler messages, hide parent instruction and all panels
+            // Initial state: show toddler messages, hide parent instruction and all panels, hide new back button
             showInitialMessages();
             parentModeInstruction.classList.add('hidden');
             hideAllLessonPanels(); // Ensure all panels are hidden
             hasInteracted = false; // Reset interaction flag
+            backToParentMenuFromLessonBtn.classList.add('hidden'); // Ensure this is hidden initially
 
             // After initialMessageDuration, hide toddler messages and start parent instruction cycle
             setTimeout(() => {
                 // Only transition if toddler hasn't interacted and parent mode isn't active
-                if (!hasInteracted && !isParentModeActive) {
+                // And only if we are in freeplay mode
+                if (!hasInteracted && !isParentModeActive && currentLessonMode === 'freeplay') {
                     hideInitialMessages();
                     startParentInstructionTimer();
                 }
             }, initialMessageDuration);
 
             deactivateParentMode(); // Ensure we start in toddler mode with instruction visible
+            resizeCanvas(); // Set initial canvas size
+            window.addEventListener('resize', resizeCanvas); // Resize canvas on window resize
         }
 
         // Function to unlock the screen
@@ -724,16 +1079,17 @@
             body.classList.remove('locked');
             body.classList.add('unlocked');
 
-            // Remove event listeners
-            document.removeEventListener('keydown', handleKeyDown);
-            document.removeEventListener('touchstart', handleTouchStart);
-            document.removeEventListener('touchmove', handleTouchMove);
-            document.removeEventListener('touchend', handleTouchEnd);
-            document.removeEventListener('mousemove', handleTouchMove);
-            document.removeEventListener('click', handleTouchStart);
+            // Remove event listeners from lockOverlay
+            document.removeEventListener('keydown', handleKeyDown); // Keydown remains on document
+            lockOverlay.removeEventListener('touchstart', handleTouchStart);
+            lockOverlay.removeEventListener('touchmove', handleTouchMove);
+            lockOverlay.removeEventListener('touchend', handleTouchEnd);
+            lockOverlay.removeEventListener('mousemove', handleTouchMove);
+            lockOverlay.removeEventListener('click', handleTouchStart);
 
             stopParentInstructionTimer(); // Stop instruction timer when unlocked
             deactivateParentMode(); // Ensure parent mode is off if unlocked
+            window.removeEventListener('resize', resizeCanvas); // Remove resize listener
         }
 
         // Initialize the screen as locked when the page loads
@@ -742,3 +1098,4 @@
     </script>
 </body>
 </html>
+�
